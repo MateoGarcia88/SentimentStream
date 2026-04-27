@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+
+  mongo:
+    image: mongo:7.0
+    container_name: ss_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - ssnet
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ingest:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.ingest
+    container_name: ss_ingest
+    networks:
+      - ssnet
+    volumes:
+      - ../data:/app/data:ro
+    environment:
+      INGEST_HOST: "0.0.0.0"
+      INGEST_PORT: "9999"
+
+  predict:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.predict
+    container_name: ss_predict
+    depends_on:
+      mongo:
+        condition: service_healthy
+      ingest:
+        condition: service_started
+    environment:
+      MONGO_URI: mongodb://mongo:27017/
+      INGEST_HOST: ingest
+      INGEST_PORT: "9999"
+    networks:
+      - ssnet
+    volumes:
+      - ../model:/app/model:ro
+
+  api:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile.api
+    container_name: ss_api
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "5000:5000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017/
+    networks:
+      - ssnet
+    volumes:
+      - ../model:/app/model:ro
+
+volumes:
+  mongo_data:
+
+networks:
+  ssnet:
+    driver: bridge

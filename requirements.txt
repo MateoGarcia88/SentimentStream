@@ -1,0 +1,9 @@
+dask[dataframe,distributed]==2024.11.2
+dask-ml==2024.4.4
+scikit-learn==1.5.2
+pymongo==4.10.1
+flask==3.0.3
+pandas==2.2.3
+numpy==1.26.4
+nltk==3.9.1
+joblib==1.4.2

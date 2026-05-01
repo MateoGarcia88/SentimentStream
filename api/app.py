@@ -108,6 +108,37 @@ def predict():
         'probabilidades': {label_names[i]: round(float(p), 4) for i, p in enumerate(proba)},
     })
 
+@app.route('/sentiments/bi', methods=['GET'])
+def sentiments_bi():
+    """BI-Friendly sentiments endpoint"""
+    limit = int(request.args.get('limit', 500))
+
+    cursor = (
+        _col.find({},{
+            '__id': 0,
+            'texto': 1,
+            'prediccion': 1,
+            'confianza': 1,
+            'timestamp': 1
+        })
+        .sort('timestamp', DESCENDING)
+        .limit(limit)
+    )
+    data = []
+    for d in cursor:
+        if isinstance(d.get('timestamp'), datetime):
+            dt = d['timestamp']
+        else:
+            continue
+
+        data.append({
+            'texto': d.get('texto'),
+            'sentimiento': d.get('prediccion'),
+            'confianza': d.get('confianza'),
+            'datetime': dt.isoformat()
+        })
+        return jsonify(data)
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

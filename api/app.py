@@ -138,6 +138,20 @@ def sentiments_bi():
             'datetime': dt.isoformat()
         })
         return jsonify(data)
+    
+    @app.route('/stats/bi', methods=['GET'])
+    def stats_bi():
+        pipeline = [
+            {'$group':n{'_id': '$prediccion', 'count': {'$sum':1}}},
+            {'$sort': {'count': -1}}
+        ]
+        data = []
+        for d in _col.aggregate(pipeline):
+            data.append({
+                'sentimiento': d['_id'],
+                'count': d['count']
+            })
+        return jsonify(data)
 
 
 if __name__ == '__main__':

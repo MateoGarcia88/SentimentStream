@@ -32,8 +32,17 @@ def train():
     df["texto_limpio"] = df["texto"].apply(clean_text)
     df["label"] = df["etiqueta"].map(LABEL_MAP)
     df = df.dropna(subset=["label"])
+    df = ddf[["texto", "etiqueta"]].compute()
+    df["texto_limpio"] = df["texto"].apply(clean_text)
+    df["label"] = df["etiqueta"].map(LABEL_MAP)
+    df = df.dropna(subset=["label"])
 
     X_train, X_test, y_train, y_test = train_test_split(
+        df["texto_limpio"],
+        df["label"].astype(int),
+        test_size=0.2,
+        random_state=42,
+        stratify=df["label"],
         df["texto_limpio"],
         df["label"].astype(int),
         test_size=0.2,
@@ -52,9 +61,24 @@ def train():
             ("nb", MultinomialNB()),
         ]
     )
+    pipeline = Pipeline(
+        [
+            (
+                "hasher",
+                HashingVectorizer(n_features=2**14, alternate_sign=False, norm=None),
+            ),
+            ("tfidf", TfidfTransformer()),
+            ("nb", MultinomialNB()),
+        ]
+    )
     pipeline.fit(X_train, y_train)
 
     y_pred = pipeline.predict(X_test)
+    print(
+        classification_report(
+            y_test, y_pred, target_names=["positivo", "negativo", "neutral"]
+        )
+    )
     print(
         classification_report(
             y_test, y_pred, target_names=["positivo", "negativo", "neutral"]
@@ -66,8 +90,13 @@ def train():
         {"pipeline": pipeline, "label_map": LABEL_MAP, "label_names": LABEL_NAMES},
         MODEL_PATH,
     )
+    joblib.dump(
+        {"pipeline": pipeline, "label_map": LABEL_MAP, "label_names": LABEL_NAMES},
+        MODEL_PATH,
+    )
     print(f"[Train] Model saved → {MODEL_PATH}")
 
 
+if __name__ == "__main__":
 if __name__ == "__main__":
     train()

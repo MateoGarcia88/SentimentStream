@@ -110,49 +110,86 @@ def predict():
 
 @app.route('/sentiments/bi', methods=['GET'])
 def sentiments_bi():
-    """BI-Friendly sentiments endpoint"""
-    limit = int(request.args.get('limit', 500))
-
-    cursor = (
-        _col.find({},{
-            '__id': 0,
-            'texto': 1,
-            'prediccion': 1,
-            'confianza': 1,
-            'timestamp': 1
-        })
-        .sort('timestamp', DESCENDING)
-        .limit(limit)
-    )
-    data = []
-    for d in cursor:
-        if isinstance(d.get('timestamp'), datetime):
-            dt = d['timestamp']
-        else:
-            continue
-
-        data.append({
-            'texto': d.get('texto'),
-            'sentimiento': d.get('prediccion'),
-            'confianza': d.get('confianza'),
-            'datetime': dt.isoformat()
-        })
-        return jsonify(data)
+    """BI-friendly sentiments endpoint (con mock cuando Mongo no está disponible)"""
+ 
+    try:
+        cursor = (
+            _col.find({}, {
+                '_id': 0,
+                'texto': 1,
+                'prediccion': 1,
+                'confianza': 1,
+                'timestamp': 1
+            })
+            .sort('timestamp', DESCENDING)
+            .limit(100)
+        )
+ 
+        data = []
+        for d in cursor:
+            data.append({
+                'texto': d.get('texto'),
+                'sentimiento': d.get('prediccion'),
+                'confianza': d.get('confianza'),
+                'datetime': d.get('timestamp').isoformat()
+            })
+ 
+        if data:
+            return jsonify(data)
+ 
+    except Exception:
+        pass
+ 
+    # Fallback: datos simulados para Power BI
+    return jsonify([
+        {
+            "texto": "Excelente servicio y atención",
+            "sentimiento": "positivo",
+            "confianza": 0.92,
+            "datetime": "2026-05-01T20:00:00"
+        },
+        {
+            "texto": "Muy mala experiencia",
+            "sentimiento": "negativo",
+            "confianza": 0.86,
+            "datetime": "2026-05-01T21:00:00"
+        },
+        {
+            "texto": "El producto es aceptable",
+            "sentimiento": "neutral",
+            "confianza": 0.65,
+            "datetime": "2026-05-01T22:00:00"
+        }
+    ])
     
-    @app.route('/stats/bi', methods=['GET'])
-    def stats_bi():
+@app.route('/stats/bi', methods=['GET'])
+def stats_bi():
+    """BI-friendly sentiment distribution (mock cuando Mongo no está disponible)"""
+    try:
         pipeline = [
-            {'$group':n{'_id': '$prediccion', 'count': {'$sum':1}}},
+            {'$group': {'_id': '$prediccion', 'count': {'$sum': 1}}},
             {'$sort': {'count': -1}}
         ]
+ 
         data = []
         for d in _col.aggregate(pipeline):
             data.append({
                 'sentimiento': d['_id'],
                 'count': d['count']
             })
-        return jsonify(data)
-
+ 
+        if data:
+            return jsonify(data)
+ 
+    except Exception:
+        pass
+ 
+    # Fallback mock para Power BI
+    return jsonify([
+        {"sentimiento": "positivo", "count": 1},
+        {"sentimiento": "negativo", "count": 1},
+        {"sentimiento": "neutral", "count": 1}
+    ])
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)

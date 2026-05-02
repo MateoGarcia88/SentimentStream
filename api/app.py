@@ -1,14 +1,12 @@
 import os
-import re
+import sys
 import joblib
-import nltk
-from nltk.corpus import stopwords
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Flask, jsonify, request
 from pymongo import MongoClient, DESCENDING
-from bson import ObjectId
 
-nltk.download('stopwords', quiet=True)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from preprocessing import clean_text
 
 app = Flask(__name__)
 
@@ -18,7 +16,6 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'model', 'sentiment_m
 _mongo = MongoClient(MONGO_URI)
 _col = _mongo['sentimentstream']['predictions']
 
-STOPWORDS_ES = set(stopwords.words('spanish'))
 _model_cache = None
 
 
@@ -27,12 +24,6 @@ def _get_model():
     if _model_cache is None:
         _model_cache = joblib.load(MODEL_PATH)
     return _model_cache
-
-
-def _clean(text: str) -> str:
-    text = str(text).lower()
-    text = re.sub(r'[^a-záéíóúüñ\s]', '', text)
-    return ' '.join(t for t in text.split() if t not in STOPWORDS_ES and len(t) > 2)
 
 
 def _serialize(doc: dict) -> dict:
@@ -88,7 +79,7 @@ def predict():
     pipeline = artifact['pipeline']
     label_names = artifact['label_names']
 
-    proba = pipeline.predict_proba([_clean(texto)])[0]
+    proba = pipeline.predict_proba([clean_text(texto)])[0]
     idx = int(proba.argmax())
     prediction = label_names[idx]
     confidence = float(proba[idx])
@@ -98,8 +89,8 @@ def predict():
         'prediccion': prediction,
         'sentimiento_real': None,
         'confianza': round(confidence, 4),
-        'timestamp': datetime.utcnow(),
-        'fecha': datetime.utcnow().strftime('%Y-%m-%d'),
+        'timestamp': datetime.now(timezone.utc),
+        'fecha': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
     })
 
     return jsonify({
